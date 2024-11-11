@@ -1,42 +1,41 @@
-import fs from 'fs';
-
 function updateSatellite() {
-    let fetched_data = []
+    let fetched_data = [];
 
     fetch('french_satellites.json')
-    .then(response => response.json()) // Parse JSON response
+    .then(response => response.json())
     .then(data => {
         console.log("Update Time " + Date());
 
-        data['satellites'].forEach(satellite => {
-            fetch('satellite.php?norad_id=' + satellite['norad_id'])	
+        const fetchPromises = data['satellites'].map(satellite => {
+            return fetch('satellite.php?norad_id=' + satellite['norad_id'])	
             .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok ' + response.statusText);
-            }
-            return response.text();
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                return response.json();
             })
             .then(data => {
                 fetched_data.push(data);
                 console.log(data);
+                return data;
             })
             .catch(error => {
                 console.log(`Error: ${error.message}`);
             });
         });
 
-        const save = JSON.stringify(fetched_data);
-
-        fs.writeFile("data.json", save, (error) => {
-            if (error) {
-                console.error(error);
-                throw error;
-            }
-        });
+        return Promise.all(fetchPromises);
+    })
+    .then(() => {
+        // Here you can do something with the fetched_data array
+        console.log("All data fetched:", fetched_data);
+        // Instead of writing to a file, you could update the UI or do other operations
     })
     .catch(error => console.error('Error loading JSON:', error));
-};
+}
 
-setInterval(function () {
-    updateSatellite();
-}, 60 * 60000); //every 60 minutes
+// Call updateSatellite immediately
+updateSatellite();
+
+// Then set interval to call it every 60 minutes
+setInterval(updateSatellite, 60 * 60000);
