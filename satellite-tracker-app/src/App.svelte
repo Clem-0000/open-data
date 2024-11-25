@@ -5,7 +5,7 @@
 
   async function getSatelliteInfo(norad_id) {
     const response = await fetch(
-      `/api/rest/v1/satellite/tle/${norad_id}&apiKey=U9J3VY-5D8CUZ-7GNUDL-5CR1`,
+      `/api/rest/v1/satellite/tle/${norad_id}&apiKey=U9J3VY-5D8CUZ-7GNUDL-5CR1`
     );
     const data = await response.json();
     console.log(data);
@@ -73,6 +73,20 @@
         id: satrec.satnum,
         name: `Satellite ${satrec.satnum}`,
         availability: `${startTime.toISOString()}/${endTime.toISOString()}`,
+        billboard: {
+          eyeOffset: {
+            cartesian: [0, 0, 0],
+          },
+          horizontalOrigin: "CENTER",
+          image:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADJSURBVDhPnZHRDcMgEEMZjVEYpaNklIzSEfLfD4qNnXAJSFWfhO7w2Zc0Tf9QG2rXrEzSUeZLOGm47WoH95x3Hl3jEgilvDgsOQUTqsNl68ezEwn1vae6lceSEEYvvWNT/Rxc4CXQNGadho1NXoJ+9iaqc2xi2xbt23PJCDIB6TQjOC6Bho/sDy3fBQT8PrVhibU7yBFcEPaRxOoeTwbwByCOYf9VGp1BYI1BA+EeHhmfzKbBoJEQwn1yzUZtyspIQUha85MpkNIXB7GizqDEECsAAAAASUVORK5CYII=",
+          pixelOffset: {
+            cartesian2: [0, 0],
+          },
+          scale: 1.5,
+          show: true,
+          verticalOrigin: "CENTER",
+        },
         position: {
           epoch: startTime.toISOString(),
           cartesian: positions,
@@ -105,7 +119,7 @@
         console.error("Erreur lors du chargement du CZML :", error);
       });
   }
-  
+
   let viewer;
 
   // TODO : Check warning in the console and correct them (maybe used bing maps for correcting http error without S)
@@ -118,7 +132,6 @@
     // Initialize the Cesium Viewer
     viewer = new Viewer("cesiumContainer", {
       shouldAnimate: true,
-      
     });
   });
 
