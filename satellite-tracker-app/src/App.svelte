@@ -5,7 +5,7 @@
 
   async function getSatelliteInfo(norad_id) {
     const response = await fetch(
-      `/api/rest/v1/satellite/tle/${norad_id}&apiKey=U9J3VY-5D8CUZ-7GNUDL-5CR1`
+      `/api/rest/v1/satellite/tle/${norad_id}&apiKey=U9J3VY-5D8CUZ-7GNUDL-5CR1`,
     );
     const data = await response.json();
     console.log(data);
@@ -28,11 +28,11 @@
     }
     console.log("Satellite Info:", satelliteInfo);
     satelliteInfo.forEach((satelliteInfo) => {
-      convertTLEtoCZML(satelliteInfo.tle);
+      convertTLEtoCZML(satelliteInfo.tle, satelliteInfo.info.satname);
     });
   }
 
-  function convertTLEtoCZML(tle) {
+  function convertTLEtoCZML(tle, satInfo) {
     const tleLines = tle.split("\n");
     const tleLine1 = tleLines[0];
     const tleLine2 = tleLines[1];
@@ -71,7 +71,7 @@
       },
       {
         id: satrec.satnum,
-        name: `Satellite ${satrec.satnum}`,
+        name: `${satInfo}`,
         availability: `${startTime.toISOString()}/${endTime.toISOString()}`,
         billboard: {
           eyeOffset: {
