@@ -3,34 +3,60 @@ import re
 import json
 import os
 
-# URL of the French satellites page
-base_url = 'https://www.n2yo.com/satellites/?c=FR&t=country&p='
+countries = [
+    {"name": "France", "codeCountry": "FR"},
+    {"name": "Azerbaijan", "codeCountry": "AZER"},
+    {"name": "Bangladesh", "codeCountry": "BGD"},
+    {"name": "Belarus", "codeCountry": "BELA"},
+    {"name": "Bolivia", "codeCountry": "BOL"},
+    {"name": "Bulgaria", "codeCountry": "BGR"},
+    {"name": "Denmark", "codeCountry": "DEN"},
+    {"name": "Egypt", "codeCountry": "EGYP"},
+    {"name": "Italy", "codeCountry": "IT"},
+    {"name": "Kazakhstan", "codeCountry": "KAZ"},
+    {"name": "Lithuania", "codeCountry": "LTU"},
+    {"name": "Australia", "codeCountry": "AUS"},
+]
 
-page_number = 0
 pattern = re.compile(r'\[sat_id\]\s*=>\s*(\d+)')
-satellites_data = []
+satellites_data = {}
 
-while True:
-    url = f"{base_url}{page_number}"
+for country in countries:
+    country_name = country["name"]
+    code_country = country["codeCountry"]
+    
+    base_url = f'https://www.n2yo.com/satellites/?c={code_country}&t=country&p='
+    page_number = 0
+    country_satellites = []
 
-    response = requests.get(url)
-    html_content = response.text
+    print(f"Processing for country: {country_name}")
 
-    matches = pattern.findall(html_content)
+    while True:
+        url = f"{base_url}{page_number}"
+        
+        try:
+            response = requests.get(url)
+            response.raise_for_status() 
+        except requests.RequestException as e:
+            print(f"Error retrieving data for {country_name}: {e}")
+            break
 
-    if not matches:
-        print(f"Aucun sat_id trouvé sur la page {page_number}. Arrêt du script.")
-        break
+        html_content = response.text
+        matches = pattern.findall(html_content)
 
-    for match in matches:
-        satellites_data.append({"sat_id": match})
-        print("sat_id trouvé:", match)
+        if not matches:
+            print(f"No sat_id found on page {page_number} for {country_name}.")
+            break
 
-    page_number += 1
+        country_satellites.extend(matches)
+        print(f"Page {page_number}: {len(matches)} sat_id found.")
 
-# Write result in a JSON file
+        page_number += 1
+
+    satellites_data[country_name] = country_satellites
+
 output_file = os.path.join(os.path.dirname(__file__), "satellites_data.json")
 with open(output_file, 'w') as json_file:
     json.dump(satellites_data, json_file, indent=4)
 
-print(f"Données de satellites enregistrées dans {output_file}")
+print(f"Satellite data saved in {output_file}")
