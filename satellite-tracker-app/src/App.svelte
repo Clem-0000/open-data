@@ -9,7 +9,6 @@
     JulianDate,
   } from "cesium";
   import * as satellite from "satellite.js";
-    import Select from "./lib/Select.svelte";
 
   let countries = []; 
   let selectedCountry = "";
