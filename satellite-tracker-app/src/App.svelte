@@ -1,48 +1,90 @@
 <script>
   import { onMount } from "svelte";
-  import { Viewer, Ion, CzmlDataSource } from "cesium";
+  import {
+    Viewer,
+    Ion,
+    CzmlDataSource,
+    ClockStep,
+    ClockRange,
+    JulianDate,
+  } from "cesium";
   import * as satellite from "satellite.js";
+    import Select from "./lib/Select.svelte";
 
+  let countries = []; 
+  let selectedCountry = "";
+  let satelliteData = {}; 
+  let viewer;
+  let czmlDataSources = [];
+
+  // Fetch satellite information for a specific NORAD ID
   async function getSatelliteInfo(norad_id) {
-    const response = await fetch(
-      `/api/rest/v1/satellite/tle/${norad_id}&apiKey=U9J3VY-5D8CUZ-7GNUDL-5CR1`,
-    );
-    const data = await response.json();
-    console.log(data);
-    return data;
-  }
+    console.info('is Call');
+    try {
+      const response = await fetch(
+        `/api/rest/v1/satellite/tle/${norad_id}&apiKey=U9J3VY-5D8CUZ-7GNUDL-5CR1`,
+      );
+      const data = await response.json();
 
-  async function getAllSatInfo() {
-    const response = await fetch("/french_satellites_shorten.json");
-    const data = await response.json();
-    console.log("json satellites", data);
+      if (!data || !data.tle || !data.tle.includes("\n")) {
+        console.error(`Invalid or missing TLE for NORAD ID ${norad_id}:`, data);
+        return null;
+      }
 
-    // Extraire les ID des satellites
-    const satelliteIds = data.satellites.map((satellite) => satellite.norad_id);
-    console.log("Satellite IDs:", satelliteIds);
-
-    // Utiliser les ID extraits
-    const satelliteInfo = [];
-    for (let id of satelliteIds) {
-      satelliteInfo.push(await getSatelliteInfo(id));
+      return data;
+    } catch (error) {
+      console.error(
+        `Error fetching satellite info for NORAD ID ${norad_id}:`,
+        error,
+      );
+      return null;
     }
-    console.log("Satellite Info:", satelliteInfo);
-    satelliteInfo.forEach((satelliteInfo) => {
-      convertTLEtoCZML(satelliteInfo.tle, satelliteInfo.info.satname);
-    });
   }
 
+  // Fetch all satellite data
+  async function fetchSatelliteData() {
+    const response = await fetch("/satellites_data_shorten.json");
+    const data = await response.json();
+    satelliteData = data;
+
+    countries = Object.keys(data);
+    selectedCountry = countries[0]; // We want France as default country (Vive la baguette)
+  }
+
+  function clearSatellites() {
+    czmlDataSources.forEach((dataSource) => {
+      viewer.dataSources.remove(dataSource, true); 
+    });
+    czmlDataSources = [];
+  }
+
+  async function loadSatellitesForCountry() {
+    if (!selectedCountry || !satelliteData[selectedCountry]) return;
+
+    clearSatellites();
+
+    const satelliteIds = satelliteData[selectedCountry];
+    for (let id of satelliteIds) {
+      const satInfo = await getSatelliteInfo(id);
+      if (satInfo) {
+        convertTLEtoCZML(satInfo.tle, satInfo.info.satname);
+      } else {
+        console.warn(`Skipping satellite with ID ${id} due to invalid data.`);
+      }
+    }
+  }
+
+  // Convert TLE data to CZML and load into Cesium
   function convertTLEtoCZML(tle, satInfo) {
     const tleLines = tle.split("\n");
     const tleLine1 = tleLines[0];
     const tleLine2 = tleLines[1];
     const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
 
-    // Generate positions for the next 24 hours
     const startTime = new Date();
     const endTime = new Date(startTime.getTime() + 24 * 60 * 60 * 1000);
     const positions = [];
-    const step = 60 * 1000; // 1 minute step
+    const step = 60 * 1000;
 
     for (
       let time = startTime;
@@ -54,15 +96,12 @@
       if (typeof positionAndVelocity.position !== "boolean") {
         const position = satellite.eciToEcf(positionAndVelocity.position, gmst);
         positions.push(time.toISOString());
-        positions.push(position.x * 1000); // Convert to meters
+        positions.push(position.x * 1000);
         positions.push(position.y * 1000);
         positions.push(position.z * 1000);
-      } else {
-        console.error("Invalid position data");
       }
     }
 
-    // Create CZML document
     const czml = [
       {
         id: "document",
@@ -74,15 +113,11 @@
         name: `${satInfo}`,
         availability: `${startTime.toISOString()}/${endTime.toISOString()}`,
         billboard: {
-          eyeOffset: {
-            cartesian: [0, 0, 0],
-          },
+          eyeOffset: { cartesian: [0, 0, 0] },
           horizontalOrigin: "CENTER",
           image:
             "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADJSURBVDhPnZHRDcMgEEMZjVEYpaNklIzSEfLfD4qNnXAJSFWfhO7w2Zc0Tf9QG2rXrEzSUeZLOGm47WoH95x3Hl3jEgilvDgsOQUTqsNl68ezEwn1vae6lceSEEYvvWNT/Rxc4CXQNGadho1NXoJ+9iaqc2xi2xbt23PJCDIB6TQjOC6Bho/sDy3fBQT8PrVhibU7yBFcEPaRxOoeTwbwByCOYf9VGp1BYI1BA+EeHhmfzKbBoJEQwn1yzUZtyspIQUha85MpkNIXB7GizqDEECsAAAAASUVORK5CYII=",
-          pixelOffset: {
-            cartesian2: [0, 0],
-          },
+          pixelOffset: { cartesian2: [0, 0] },
           scale: 1.5,
           show: true,
           verticalOrigin: "CENTER",
@@ -91,54 +126,58 @@
           epoch: startTime.toISOString(),
           cartesian: positions,
         },
-        path: {
+        /*path: {
           material: {
             solidColor: {
-              color: {
-                rgba: [255, 0, 0, 255],
-              },
+              color: { rgba: [255, 0, 0, 255] },
             },
           },
           width: 1,
           leadTime: 0,
           trailTime: 60 * 60 * 24,
           resolution: 120,
-        },
+        },*/
       },
     ];
 
-    // Ajouter le CZML à Cesium
     const czmlDataSource = new CzmlDataSource();
     czmlDataSource
       .load(czml)
       .then(() => {
         viewer.dataSources.add(czmlDataSource);
-        console.log(`Satellite ${satrec.satnum} ajouté à la carte.`);
+        czmlDataSources.push(czmlDataSource);
       })
-      .catch((error) => {
-        console.error("Erreur lors du chargement du CZML :", error);
-      });
+      .catch((error) => console.error("Error loading CZML:", error));
   }
 
-  let viewer;
-
-  // TODO : Check warning in the console and correct them (maybe used bing maps for correcting http error without S)
-  // Initialize Cesium Viewer
-  onMount(() => {
-    // TODO : Hide in ENV the access token
+  // Initialize Cesium viewer
+  onMount(async () => {
     Ion.defaultAccessToken =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4ODRlMDAyOC1jMTk1LTQ0YzMtYWI4Yy1mMGRhOTVlNTRjOGUiLCJpZCI6MjQ4MDcxLCJpYXQiOjE3Mjg5MTkyOTd9.E1s0Ltamk-LNAm3ZEYLBflltEbevlPzNzhhgXpJCj3U";
 
-    // Initialize the Cesium Viewer
-    viewer = new Viewer("cesiumContainer", {
-      shouldAnimate: true,
-    });
+    viewer = new Viewer("cesiumContainer", { shouldAnimate: true });
+
+    const clock = viewer.clock;
+    clock.clockStep = ClockStep.SYSTEM_CLOCK;
+    clock.clockRange = ClockRange.UNBOUNDED;
+    clock.currentTime = JulianDate.now();
+    clock.multiplier = 1;
+
+    await fetchSatelliteData();
+    await loadSatellitesForCountry();
   });
 
-  getAllSatInfo();
+  $: if (selectedCountry) loadSatellitesForCountry();
 </script>
 
 <main>
+  <div class="containerSelector">
+    <select id="country-selector" bind:value={selectedCountry}>
+      {#each countries as country}
+        <option value={country}>{country}</option>
+      {/each}
+    </select>
+  </div>
   <div id="cesiumContainer"></div>
 </main>
 
@@ -155,5 +194,30 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
+    position: relative;
+  }
+
+  .containerSelector {
+    position: absolute; 
+    top: 10px; 
+    left: 10px; 
+    z-index: 10; 
+    background-color: rgba(0, 0, 0, 0.5); 
+    padding: 5px;
+    border-radius: 5px;
+  }
+
+  select {
+    padding: 5px;
+    font-size: 1rem;
+    color: #fff; 
+    background-color: #2a2a2a; 
+    border: 1px solid #555; 
+    border-radius: 3px;
+  }
+
+  select:focus {
+    outline: none;
+    border-color: #00aaff;
   }
 </style>
