@@ -10,23 +10,25 @@
   } from "cesium";
   import * as satellite from "satellite.js";
 
-  let countries = []; 
+  const SATELLITES_DATA_URL = "/satellites_data.json";
+  const TLE_DATA_URL = "/tle_data.json";
+
+  let countries = [];
   let selectedCountry = "";
-  let satelliteData = {}; 
+  let satelliteData = {};
+  let tleData = {};
   let viewer;
   let czmlDataSources = [];
 
   // Fetch satellite information for a specific NORAD ID
   async function getSatelliteInfo(norad_id) {
-    console.info('is Call');
     try {
       const response = await fetch(
-        `/api/rest/v1/satellite/tle/${norad_id}&apiKey=U9J3VY-5D8CUZ-7GNUDL-5CR1`,
+        `/api/rest/v1/satellite/tle/${norad_id}&apiKey=U9J3VY-5D8CUZ-7GNUDL-5CR1`
       );
       const data = await response.json();
 
       if (!data || !data.tle || !data.tle.includes("\n")) {
-        console.error(`Invalid or missing TLE for NORAD ID ${norad_id}:`, data);
         return null;
       }
 
@@ -34,7 +36,7 @@
     } catch (error) {
       console.error(
         `Error fetching satellite info for NORAD ID ${norad_id}:`,
-        error,
+        error
       );
       return null;
     }
@@ -42,17 +44,24 @@
 
   // Fetch all satellite data
   async function fetchSatelliteData() {
-    const response = await fetch("/satellites_data_shorten.json");
+    const response = await fetch(SATELLITES_DATA_URL);
     const data = await response.json();
     satelliteData = data;
 
     countries = Object.keys(data);
-    selectedCountry = countries[0]; // We want France as default country (Vive la baguette)
+  }
+
+  // Fetch all TLE data
+  async function fetchTLEData() {
+    const response = await fetch(TLE_DATA_URL);
+    const data = await response.json();
+
+    tleData = data;
   }
 
   function clearSatellites() {
     czmlDataSources.forEach((dataSource) => {
-      viewer.dataSources.remove(dataSource, true); 
+      viewer.dataSources.remove(dataSource, true);
     });
     czmlDataSources = [];
   }
@@ -68,7 +77,20 @@
       if (satInfo) {
         convertTLEtoCZML(satInfo.tle, satInfo.info.satname);
       } else {
-        console.warn(`Skipping satellite with ID ${id} due to invalid data.`);
+        const satInfo = tleData[id];
+        if (satInfo) {
+          if (!satInfo.tle || !satInfo.tle.includes("\n")) {
+            console.warn(
+              `Skipping satellite with ID ${id} due to missing TLE data.`
+            );
+            continue;
+          }
+          convertTLEtoCZML(satInfo.tle, satInfo.satname);
+        } else {
+          console.warn(
+            `Skipping satellite with ID ${id} due to missing TLE data.`
+          );
+        }
       }
     }
   }
@@ -154,7 +176,10 @@
     Ion.defaultAccessToken =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4ODRlMDAyOC1jMTk1LTQ0YzMtYWI4Yy1mMGRhOTVlNTRjOGUiLCJpZCI6MjQ4MDcxLCJpYXQiOjE3Mjg5MTkyOTd9.E1s0Ltamk-LNAm3ZEYLBflltEbevlPzNzhhgXpJCj3U";
 
-    viewer = new Viewer("cesiumContainer", { shouldAnimate: true });
+    viewer = new Viewer("cesiumContainer", {
+      shouldAnimate: true,
+      automaticallyTrackDataSourceClocks: false,
+    });
 
     const clock = viewer.clock;
     clock.clockStep = ClockStep.SYSTEM_CLOCK;
@@ -163,6 +188,9 @@
     clock.multiplier = 1;
 
     await fetchSatelliteData();
+    await fetchTLEData();
+
+    selectedCountry = countries[0]; // We want France as default country (Vive la baguette)
     await loadSatellitesForCountry();
   });
 
@@ -173,7 +201,9 @@
   <div class="containerSelector">
     <select id="country-selector" bind:value={selectedCountry}>
       {#each countries as country}
-        <option value={country}>{country}</option>
+        <option value={country}
+          >{country} ({satelliteData[country].length})</option
+        >
       {/each}
     </select>
   </div>
@@ -197,11 +227,11 @@
   }
 
   .containerSelector {
-    position: absolute; 
-    top: 10px; 
-    left: 10px; 
-    z-index: 10; 
-    background-color: rgba(0, 0, 0, 0.5); 
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    background-color: rgba(0, 0, 0, 0.5);
     padding: 5px;
     border-radius: 5px;
   }
@@ -209,9 +239,9 @@
   select {
     padding: 5px;
     font-size: 1rem;
-    color: #fff; 
-    background-color: #2a2a2a; 
-    border: 1px solid #555; 
+    color: #fff;
+    background-color: #2a2a2a;
+    border: 1px solid #555;
     border-radius: 3px;
   }
 
