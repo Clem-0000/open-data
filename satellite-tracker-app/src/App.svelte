@@ -20,6 +20,18 @@
   let viewer;
   let czmlDataSources = [];
 
+  async function getUserCountry() {
+  try {
+    const response = await fetch('https://ipapi.co/json/');
+    const data = await response.json();
+    console.log('User country:', data.country_name);
+    return data.country_name;
+  } catch (error) {
+    console.error('Error fetching user country:', error);
+    return null;
+  }
+}
+
   // Fetch satellite information for a specific NORAD ID
   async function getSatelliteInfo(norad_id) {
     try {
@@ -207,6 +219,11 @@
       {/each}
     </select>
   </div>
+  <div class="informationPanel">
+    <h1>Information Panel</h1>
+    <p>Dataset coming from : https://www.n2yo.com/</p>
+    <p>Author : Clément B. and Arthur Z.</p>
+  </div>
   <div id="cesiumContainer"></div>
 </main>
 
@@ -231,6 +248,17 @@
     top: 10px;
     left: 10px;
     z-index: 10;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 5px;
+    border-radius: 5px;
+  }
+
+  .informationPanel {
+    position: absolute;
+    top: 50px;
+    right: 10px;
+    z-index: 10;
+    color: #fff;
     background-color: rgba(0, 0, 0, 0.5);
     padding: 5px;
     border-radius: 5px;
