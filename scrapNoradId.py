@@ -18,14 +18,14 @@ countries = [
     {"name": "Australia", "codeCountry": "AUS"},
 ]
 
-pattern = re.compile(r'\[sat_id\]\s*=>\s*(\d+)')
+pattern = re.compile(r"\[sat_id\]\s*=>\s*(\d+)")
 satellites_data = {}
 
 for country in countries:
     country_name = country["name"]
     code_country = country["codeCountry"]
-    
-    base_url = f'https://www.n2yo.com/satellites/?c={code_country}&t=country&p='
+
+    base_url = f"https://www.n2yo.com/satellites/?c={code_country}&t=country&p="
     page_number = 0
     country_satellites = []
 
@@ -33,10 +33,10 @@ for country in countries:
 
     while True:
         url = f"{base_url}{page_number}"
-        
+
         try:
             response = requests.get(url)
-            response.raise_for_status() 
+            response.raise_for_status()
         except requests.RequestException as e:
             print(f"Error retrieving data for {country_name}: {e}")
             break
@@ -56,7 +56,7 @@ for country in countries:
     satellites_data[country_name] = country_satellites
 
 output_file = os.path.join(os.path.dirname(__file__), "satellites_data.json")
-with open(output_file, 'w') as json_file:
+with open(output_file, "w") as json_file:
     json.dump(satellites_data, json_file, indent=4)
 
 print(f"Satellite data saved in {output_file}")
