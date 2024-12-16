@@ -21,16 +21,16 @@
   let czmlDataSources = [];
 
   async function getUserCountry() {
-  try {
-    const response = await fetch('https://ipapi.co/json/');
-    const data = await response.json();
-    console.log('User country:', data.country_name);
-    return data.country_name;
-  } catch (error) {
-    console.error('Error fetching user country:', error);
-    return null;
+    try {
+      const response = await fetch("https://ipapi.co/json/");
+      const data = await response.json();
+      console.log("User country:", data.country_name);
+      return data.country_name;
+    } catch (error) {
+      console.error("Error fetching user country:", error);
+      return null;
+    }
   }
-}
 
   // Fetch satellite information for a specific NORAD ID
   async function getSatelliteInfo(norad_id) {
@@ -39,10 +39,6 @@
         `/api/rest/v1/satellite/tle/${norad_id}&apiKey=U9J3VY-5D8CUZ-7GNUDL-5CR1`
       );
       const data = await response.json();
-
-      if (!data || !data.tle || !data.tle.includes("\n")) {
-        return null;
-      }
 
       return data;
     } catch (error) {
@@ -84,20 +80,46 @@
     clearSatellites();
 
     const satelliteIds = satelliteData[selectedCountry];
+    let APIisRateLimited = false;
     for (let id of satelliteIds) {
-      const satInfo = await getSatelliteInfo(id);
-      if (satInfo) {
-        convertTLEtoCZML(satInfo.tle, satInfo.info.satname);
+      if (!APIisRateLimited) {
+        const data = await getSatelliteInfo(id);
+        if (
+          data &&
+          data.error &&
+          data.error ===
+            "You exceeded the number of transactions allowed per hour"
+        ) {
+          APIisRateLimited = true;
+        }
+        if ((data && !data.error) || !APIisRateLimited) {
+          convertTLEtoCZML(data.tle, data.info.satname);
+        } else {
+          const data = tleData[id];
+          if (data) {
+            if (!data.tle || !data.tle.includes("\n")) {
+              console.warn(
+                `Skipping satellite with ID ${id} due to missing TLE data.`
+              );
+              continue;
+            }
+            convertTLEtoCZML(data.tle, data.satname);
+          } else {
+            console.warn(
+              `Skipping satellite with ID ${id} due to missing TLE data.`
+            );
+          }
+        }
       } else {
-        const satInfo = tleData[id];
-        if (satInfo) {
-          if (!satInfo.tle || !satInfo.tle.includes("\n")) {
+        const data = tleData[id];
+        if (data) {
+          if (!data.tle || !data.tle.includes("\n")) {
             console.warn(
               `Skipping satellite with ID ${id} due to missing TLE data.`
             );
             continue;
           }
-          convertTLEtoCZML(satInfo.tle, satInfo.satname);
+          convertTLEtoCZML(data.tle, data.satname);
         } else {
           console.warn(
             `Skipping satellite with ID ${id} due to missing TLE data.`
@@ -255,7 +277,7 @@
 
   .informationPanel {
     position: absolute;
-    top: 50px;
+    bottom: 50px;
     right: 10px;
     z-index: 10;
     color: #fff;
