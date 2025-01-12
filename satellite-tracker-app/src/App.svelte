@@ -19,6 +19,7 @@
   let tleData = {};
   let viewer;
   let czmlDataSources = [];
+  let currentRequestId = 0;
 
   async function getUserCountry() {
     try {
@@ -77,13 +78,24 @@
   async function loadSatellitesForCountry() {
     if (!selectedCountry || !satelliteData[selectedCountry]) return;
 
+    const requestId = ++currentRequestId;
+
     clearSatellites();
 
     const satelliteIds = satelliteData[selectedCountry];
     let APIisRateLimited = false;
     for (let id of satelliteIds) {
+      if (requestId !== currentRequestId) {
+        console.log(`Request for satellite ${id} was cancelled.`);
+        return;
+      }
+
       if (!APIisRateLimited) {
         const data = await getSatelliteInfo(id);
+        if (requestId !== currentRequestId) {
+          console.log(`Request for satellite ${id} was cancelled.`);
+          return;
+        }
         if (
           data &&
           data.error &&
