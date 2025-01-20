@@ -55,6 +55,16 @@
   async function fetchSatelliteData() {
     const response = await fetch(SATELLITES_DATA_URL);
     const data = await response.json();
+    Object.keys(data).forEach((key) => {
+      const formattedKey = key
+        .split(" ")
+        .map(
+          (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
+        .join(" ");
+      data[formattedKey] = data[key];
+      delete data[key];
+    });
     satelliteData = data;
 
     countries = Object.keys(data);
@@ -105,7 +115,7 @@
           APIisRateLimited = true;
         }
         if ((data && !data.error) || !APIisRateLimited) {
-          convertTLEtoCZML(data.tle, data.info.satname);
+          convertTLEtoCZML(id, data.tle, data.info.satname);
         } else {
           const data = tleData[id];
           if (data) {
@@ -115,7 +125,7 @@
               );
               continue;
             }
-            convertTLEtoCZML(data.tle, data.satname);
+            convertTLEtoCZML(id, data.tle, data.satname);
           } else {
             console.warn(
               `Skipping satellite with ID ${id} due to missing TLE data.`
@@ -131,7 +141,7 @@
             );
             continue;
           }
-          convertTLEtoCZML(data.tle, data.satname);
+          convertTLEtoCZML(id, data.tle, data.satname);
         } else {
           console.warn(
             `Skipping satellite with ID ${id} due to missing TLE data.`
@@ -142,7 +152,7 @@
   }
 
   // Convert TLE data to CZML and load into Cesium
-  function convertTLEtoCZML(tle, satInfo) {
+  function convertTLEtoCZML(id, tle, satInfo) {
     const tleLines = tle.split("\n");
     const tleLine1 = tleLines[0];
     const tleLine2 = tleLines[1];
@@ -178,6 +188,7 @@
       {
         id: satrec.satnum,
         name: `${satInfo}`,
+        description: `<p>Click <a href='https://www.n2yo.com/satellite/?s=${id}' target='_blank'>here</a> to see more information about this satellite on the N2YO website.</p>`,
         availability: `${startTime.toISOString()}/${endTime.toISOString()}`,
         billboard: {
           eyeOffset: { cartesian: [0, 0, 0] },
@@ -236,7 +247,7 @@
     await fetchSatelliteData();
     await fetchTLEData();
 
-    selectedCountry = countries[0]; // We want France as default country (Vive la baguette)
+    selectedCountry = countries[0];
     await loadSatellitesForCountry();
   });
 
